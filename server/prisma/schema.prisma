@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  citizen
+  government
+  admin
+}
+
+enum KycStatus {
+  none
+  pending
+  verified
+  rejected
+}
+
+enum IssueCategory {
+  pothole
+  streetlight
+  sewage
+  water_supply
+  waste_management
+  other
+}
+
+enum IssueStatus {
+  pending_review
+  acknowledged
+  planned
+  crowdfunding_enabled
+  in_progress
+  completed
+  rejected
+}
+
+enum CampaignStatus {
+  pending_approval
+  active
+  completed
+  cancelled
+}
+
+enum ContributionStatus {
+  pending
+  success
+  failed
+}
+
+model User {
+  id             String    @id @default(uuid())
+  name           String
+  email          String    @unique
+  passwordHash   String
+  role           Role      @default(citizen)
+  phone          String?
+  address        String?
+  kycStatus      KycStatus @default(none)
+  kycIdDocUrl    String?
+  kycSelfieUrl   String?
+  createdAt      DateTime  @default(now())
+
+  governmentBody GovernmentBody?
+  reportedIssues Issue[]           @relation("ReportedIssues")
+  statusUpdates  IssueStatusUpdate[]
+  heldCampaigns  FundraiserCampaign[] @relation("CampaignHolder")
+  contributions  Contribution[]
+}
+
+model GovernmentBody {
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id])
+  municipalityName    String
+  jurisdictionArea    String
+  officialDocumentUrl String?
+  verifiedByAdminId   String?
+  verifiedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  issues    Issue[]
+  campaigns FundraiserCampaign[] @relation("CampaignApprovedByGov")
+}
+
+model Issue {
+  id                  String        @id @default(uuid())
+  reportedByUserId    String
+  reportedBy          User          @relation("ReportedIssues", fields: [reportedByUserId], references: [id])
+  title               String
+  description         String
+  category            IssueCategory
+  photos              String[]
+  locationText         String
+  latitude            Float?
+  longitude           Float?
+  status              IssueStatus   @default(pending_review)
+  governmentBodyId    String?
+  governmentBody      GovernmentBody? @relation(fields: [governmentBodyId], references: [id])
+  estimatedBudget     Decimal?      @db.Decimal(12, 2)
+  isBudgetPublic      Boolean       @default(false)
+  estimatedTimelineDate DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  statusUpdates IssueStatusUpdate[]
+  campaign      FundraiserCampaign?
+}
+
+model IssueStatusUpdate {
+  id            String      @id @default(uuid())
+  issueId       String
+  issue         Issue       @relation(fields: [issueId], references: [id])
+  updatedByUserId String
+  updatedBy     User        @relation(fields: [updatedByUserId], references: [id])
+  statusFrom    IssueStatus
+  statusTo      IssueStatus
+  note          String?
+  photos        String[]
+  createdAt     DateTime    @default(now())
+}
+
+model FundraiserCampaign {
+  id                      String         @id @default(uuid())
+  issueId                 String         @unique
+  issue                   Issue          @relation(fields: [issueId], references: [id])
+  holderUserId            String
+  holder                  User           @relation("CampaignHolder", fields: [holderUserId], references: [id])
+  approvedByGovernmentBodyId String?
+  approvedByGovernmentBody GovernmentBody? @relation("CampaignApprovedByGov", fields: [approvedByGovernmentBodyId], references: [id])
+  approvedByAdminId       String?
+  goalAmount              Decimal        @db.Decimal(12, 2)
+  currentAmount           Decimal        @default(0) @db.Decimal(12, 2)
+  status                  CampaignStatus @default(pending_approval)
+  createdAt               DateTime       @default(now())
+  closesAt                DateTime?
+
+  contributions Contribution[]
+}
+
+model Contribution {
+  id                 String              @id @default(uuid())
+  campaignId         String
+  campaign           FundraiserCampaign  @relation(fields: [campaignId], references: [id])
+  contributorUserId  String?
+  contributor        User?               @relation(fields: [contributorUserId], references: [id])
+  amount             Decimal             @db.Decimal(12, 2)
+  esewaTransactionId String?
+  status             ContributionStatus  @default(pending)
+  createdAt          DateTime            @default(now())
+}
