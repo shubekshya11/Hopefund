@@ -24,12 +24,12 @@ export default function Hero() {
           </div>
         </div>
         <div className="hero__image-wrapper">
-          <img 
-            src="https://images.unsplash.com/photo-1449824913929-4bd5d4c95d83?w=800&h=600&fit=crop" 
-            alt="Modern city street" 
-            className="hero__image"
-          />
-        </div>
+  <img
+    src="/NEPAL.jpg"
+    alt="street in Nepal"
+    className="hero__image"
+  />
+</div>
       </div>
     </section>
   );
